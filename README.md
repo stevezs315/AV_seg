@@ -1,9 +1,7 @@
 # Improve Retinal Artery/Vein Classification via Channel Coupling
 
 [![ESWA](https://img.shields.io/badge/ESWA-Paper-blue?logo=elsevier)](https://doi.org/10.1016/j.eswa.2025.130795)
-
 [![GitHub](https://img.shields.io/badge/GitHub-Code-black?logo=github)](https://github.com/stevezs315/AV_seg)
-
 [![Homepage](https://img.shields.io/badge/Homepage-Website-green?logo=googlechrome)](https://stevezs315.github.io/)
 
 **Shuang Zeng, Chee Hong Lee, Kaiwen Li, Boxu Xie, Ourui Fu, Hangzhou He, Lei Zhu, Yanye Lu, Fangxiao Cheng**
