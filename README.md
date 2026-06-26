@@ -42,7 +42,7 @@ We propose a channel-coupled A/V segmentation framework for retinal fundus image
 
 ## Method Overview
 
-![Method Overview](AV_seg.png)
+![Method Overview](assets/AV_seg.png)
 
 The framework uses a three-channel output representation:
 
@@ -54,7 +54,7 @@ The framework uses a three-channel output representation:
 
 The main training objective combines:
 
-```text
+```bash
 
 Total Loss = Base A/V Loss + Channel-Coupling Loss + Superpixel Contrastive Loss + Optional Recursive Loss
 ```
