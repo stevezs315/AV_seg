@@ -128,215 +128,190 @@ python preprocessing.py \
   --save-path train/_Data/<dataset>/training/enhanced
 ```
 
-For a new dataset:
-
-1. Split images into train/test sets.
-2. Prepare FOV masks and three-channel A/V/VT labels.
-3. Run image enhancement if needed.
-4. Register the dataset in `train/config.py`.
-
 ---
 
 ## Training
 
-Run training from the `train/` directory:
+Run training from the `train/` directory. A helper script is provided at [train/1_train.sh](train/1_train.sh) with pre-configured commands for all datasets.
 
 ```bash
+cd train
 
-cdtrain
-
-python3train.py\
-
+# Basic training with BCE3 loss
+python3 train.py \
   --dataset RITE-train \
-
---versionRITE_RRWNet_coupled_spcl\
-
+  --version RITE_rrwnet_bce3 \
   --model RRWNet \
+  --gpu_id 0
 
---gpu_id0\
+# Training with min-max consistency loss
+python3 train.py \
+  --dataset RITE-train \
+  --version RITE_rrwnet_minmax \
+  --model RRWNet \
+  --gpu_id 0 \
+  --base_criterion BCE3wminmaxLoss
 
+# Training with min-max consistency + superpixel contrastive loss (recommended)
+python3 train.py \
+  --dataset RITE-train \
+  --version RITE_RRWNet_coupled_spcl \
+  --model RRWNet \
+  --gpu_id 0 \
   --base_criterion BCE3wminmaxLoss \
-
---add_criterionSpCLLoss
+  --add_criterion SpCLLoss
 ```
 
-Useful arguments:
+Key arguments:
 
-| Argument | Description |
-
-| -------- | ----------- |
-
-| `--dataset` | Dataset name, such as `RITE-train`, `LES-AV`, `HRF-Karlsson-w1024`, or `Fundus-AVSeg` |
-
-| `--model` | Network backbone, such as `RRWNet`, `UNet`, `UNet_pp`, `Rolling_Unet_M`, or `RSFConvUnet` |
-
-| `--base_criterion` | Base loss, usually `BCE3Loss` or `BCE3wminmaxLoss` |
-
-| `--add_criterion` | Additional loss, for example `SpCLLoss` |
-
-| `--recursive_criterion` | Optional recursive regularizer, such as `BCE3Loss`, `SVoxelLoss`, `D25Loss`, or `topoLoss` |
-
-| `--num_iterations` | Number of recursive refinement iterations |
-
-| `--version` | Experiment folder name under `train/__training/` |
+| Argument | Type | Default | Description |
+| -------- | ---- | ------- | ----------- |
+| `--dataset` | str | `RITE-train` | Dataset name: `RITE-train`, `LES-AV`, or `HRF-Karlsson-w1024` |
+| `--model` | str | `RRWNet` | Network backbone (`RRWNet`) |
+| `--base_criterion` | str | `BCE3Loss` | Base segmentation loss: `BCE3Loss` or `BCE3wminmaxLoss` |
+| `--add_criterion` | str | `None` | Auxiliary regularization loss: `SpCLLoss` |
+| `--num_iterations` | int | `5` | Number of recursive refinement iterations |
+| `--version` | str | `""` | Experiment name (output saved to `train/__training/<version>/`) |
+| `--gpu_id` | int | `0` | GPU device ID |
+| `--learning_rate` | float | `1e-04` | Learning rate |
+| `--num_epochs` | int | `None` | Number of training epochs (dataset-specific default if `None`) |
+| `--base_channels` | int | `64` | Base channel count for the backbone |
+| `--num_folds` | int | `4` | Number of cross-validation folds |
+| `--data_folder` | str | `./_Data/` | Root directory for training data |
+| `--use_checkpoint` | int | `0` | Set to `1` to resume from a checkpoint (`--checkpoint_path` and `--scheduler_path` required) |
 
 Training outputs are saved to:
 
 ```text
-
-train/__training/<version>/
+train/__training/<version>/<dataset>/
+├── generator_best.pth       # Best model checkpoint (use this for inference)
+├── checkpoint_*.pth         # Intermediate checkpoints
+├── config.json              # Run configuration (required for inference)
+└── ...
 ```
 
-The most useful inference checkpoint is usually `generator_best.pth`. `checkpoint_final.pth` indicates a completed run.
+The recommended checkpoint for inference is `generator_best.pth`.
 
 ---
 
 ## Inference
 
-Run inference from the `train/` directory and save predictions under `eval/_Evaluation_Data/`:
+Run inference from the `train/` directory. A helper script is provided at [train/get_pred.sh](train/get_pred.sh).
 
 ```bash
+cd train
 
-cdtrain
-
-python3test.py\
-
-  --weights __training/RITE_RRWNet_minmax_0.19_spCL_0.05 \
-
---images_path_Data/RITE/test/enhanced\
-
-  --masks_path _Data/RITE/test/enhanced_masks \
-
---test_nameRITE-test\
-
+python3 test.py \
+  -w __training/RITE_RRWNet_minmax_0.19_spCL_0.05 \
+  -i _Data/RITE/test/enhanced \
+  -m _Data/RITE/test/enhanced_masks \
+  -t RITE-test \
   --save_root ../eval/_Evaluation_Data \
-
---save_pathRITE_RRWNet_coupled_spcl
+  --save_path RITE_RRWNet_coupled_spcl
 ```
 
-The prediction folder will be:
+Key arguments:
+
+| Argument | Description |
+| -------- | ----------- |
+| `-w`, `--weights` | Path to training output directory containing `generator_best.pth` and `config.json` |
+| `-i`, `--images_path` | Path to the enhanced test images |
+| `-m`, `--masks_path` | Path to the test FOV masks |
+| `-t`, `--test_name` | Test set name (e.g., `RITE-test`, `LES-AV`, `HRF`); auto-detected if omitted |
+| `--save_root` | Root directory for saving predictions (default: `../eval/_Evaluation_Data`) |
+| `--save_path` | Sub-folder name under `<save_root>/<test_name>/` |
+
+Predictions are saved to:
 
 ```text
-
-eval/_Evaluation_Data/RITE-test/RITE_RRWNet_coupled_spcl/
+eval/_Evaluation_Data/<test_name>/<save_path>/
 ```
 
 ---
 
 ## Evaluation
 
-For arbitrary prediction, ground-truth, and mask folders:
+### Arbitrary Prediction Evaluation
+
+For any prediction, ground-truth, and mask folders:
 
 ```bash
+cd eval
 
-cdeval
-
-pythonevaluate.py\
-
+python3 evaluate.py \
   -d RITE-test \
-
--p_Evaluation_Data/RITE-test/RITE_RRWNet_coupled_spcl\
-
+  -p _Evaluation_Data/RITE-test/RITE_RRWNet_coupled_spcl \
   -g _Evaluation_Data/RITE-test/gt_hu \
-
--m_Evaluation_Data/RITE-test/masks\
-
+  -m _Evaluation_Data/RITE-test/masks \
   -t mav \
-
---pixelsboth
+  --pixels both
 ```
 
-For dataset-specific comparison:
+### Dataset-Specific Comparison
 
 ```bash
+cd eval
 
-cdeval
-
-pythoncompare_results.py\
-
+python3 compare_results.py \
   -d RITE-test \
-
--p_Evaluation_Data/RITE-test/RITE_RRWNet_coupled_spcl\
-
+  -p _Evaluation_Data/RITE-test/RITE_RRWNet_coupled_spcl \
   -v RITE_RRWNet_coupled_spcl
 ```
 
-Main evaluation modes:
+### Evaluation Modes and Options
 
-| Mode | Description |
+| Argument | Description |
+| -------- | ----------- |
+| `-d`, `--dataset` | Dataset name (`RITE-test`, `LES-AV`, `HRF`, etc.) |
+| `-p`, `--pred_path` / `--predictions_path` | Path to predicted images |
+| `-g`, `--gt_path` | Path to ground-truth images |
+| `-m`, `--mask_path` | Path to FOV mask images |
+| `-t`, `--test` | Evaluation mode: `mav` (A/V + vessel-tree metrics) or `topo_mp` (topology metrics) |
+| `--pixels` | Pixel scope: `both` (vessel + intersection), `intersection` (A/V crossings only), `all` (all vessel pixels) |
+| `-v`, `--version` | Experiment version name for result tracking |
+| `-n`, `--n_paths` | Number of centerline paths for topology analysis |
 
-| ---- | ----------- |
-
-| `mav` | Artery/vein and vessel-tree classification metrics |
-
-| `topo_mp` | Topology-oriented metrics |
-
-| `--pixels both` | Evaluate both full-vessel and intersection-pixel settings |
-
-| `--pixels intersection` | Evaluate only the artery/vein intersection region |
-
-| `--pixels all` | Evaluate all vessel pixels |
-
-JSON results are written to `eval/__results/`. The helper scripts `eval/resultsxls.py` and `eval/topo_resultsxls.py` convert selected JSON outputs to Excel files.
+JSON results are saved to `eval/__results/`. Additional utilities include [eval/significance_test.py](eval/significance_test.py) for bootstrap-based statistical testing and [eval/efficiency_analysis.py](eval/efficiency_analysis.py) for model efficiency benchmarking.
 
 ---
 
 ## Project Structure
 
 ```text
-
 AV_seg/
-
 ├── train/                         # Training, inference, models, losses, data loaders
-
 │   ├── train.py                   # Main training entry point
-
 │   ├── test.py                    # Prediction / inference entry point
-
 │   ├── config.py                  # Dataset and training configuration
-
+│   ├── r2av.py                    # Training orchestrator (R2Vessels class)
 │   ├── factories.py               # Model and loss factories
-
-│   ├── models.py                  # RRWNet / UNet-style model definitions
-
-│   ├── losses.py                  # BCE3, channel-coupling, SpCL, topology losses
-
-│   ├── networks/                  # Baseline network implementations
-
-│   └── supervoxel_loss/           # Supervoxel / topology-related losses
-
-├── eval/                          # Metric computation and result conversion
-
-│   ├── evaluate.py                # Evaluate arbitrary prediction / GT / mask folders
-
-│   ├── compare_results.py         # Dataset-specific comparison workflow
-
+│   ├── models.py                  # RRWNet model definition
+│   ├── losses.py                  # BCE3, channel-coupling, SpCL, and recursive losses
+│   ├── data_vessels.py            # VesselsDataset for loading images, GT, and masks
+│   ├── data_utils.py              # Samplers, fold splitting, CSV utilities
+│   ├── transformations.py         # Data augmentation transforms
+│   ├── utils_pytorch.py           # UniversalFactory, early-stopping scheduler, checkpoint I/O
+│   ├── 1_train.sh                 # Example training commands
+│   └── get_pred.sh                # Example inference commands
+├── eval/                          # Metric computation and evaluation utilities
+│   ├── evaluate.py                # Arbitrary prediction / GT / mask folder evaluation
+│   ├── compare_results.py         # Dataset-specific multi-model comparison
 │   ├── constants.py               # Dataset definitions for evaluation
-
-│   ├── topo_metric.py             # Topology metrics
-
-│   └── resultsxls.py              # JSON-to-Excel conversion helper
-
-├── detailed_evaluation/           # Extended topology and significance evaluation
-
-├── crossing/                      # Vessel crossing / endpoint analysis utilities
-
-├── micro_vessel/                  # Micro-vessel ROI analysis utilities
-
-├── data_processing/               # Dataset conversion and distribution helpers
-
-├── preprocessing.py               # Fundus enhancement and ROI-mask erosion
-
+│   ├── test_utils.py              # Core metrics (classification, AUC, bootstrap, HD95)
+│   ├── topo_metric.py             # Topology-oriented centerline metrics
+│   ├── significance_test.py       # Bootstrap-based statistical significance testing
+│   ├── efficiency_analysis.py     # Model efficiency / FLOPs benchmarking
+│   └── net_utils.py               # Shared network utility modules
+├── data_processing/               # Dataset conversion and distribution analysis
+│   ├── data_distribution.py       # Pixel-level class distribution analysis
+│   └── groundtruth.py             # Three-channel A/V/VT ground-truth generation
+├── predictions/                   # Pre-computed predictions (RITE, LES-AV, HRF)
+├── assets/                        # Figures and illustrations
+├── preprocessing.py               # Fundus image enhancement (contrast + normalization)
 ├── generate_mask.py               # Field-of-view mask generation
-
-├── recolor_av3_labels.py          # Convert / recolor A/V labels
-
-├── result.png                     # Example prediction figure
-
+├── utils.py                       # UNet padding and tensor conversion helpers
+├── 1_preprocessing.sh             # Preprocessing script examples
 ├── requirements.txt
-
-├── LICENSE
-
 └── README.md
 ```
 
@@ -344,37 +319,26 @@ AV_seg/
 
 ## Open-Source Notes
 
-Before redistributing this repository, please review the following:
+Before redistributing this repository, please note the following:
 
-- Remove private or non-redistributable data, including private large-field datasets and local experiment outputs.
-- Respect licenses for RITE/DRIVE, HRF, LES-AV, GAVE, Fundus-AVSeg, and any other third-party datasets.
-- Move large artifacts such as `train/__training/`, `eval/_Evaluation_Data/`, `eval/__results*/`, `.pth`, `.zip`, and `.xlsx` files to release assets or external storage.
-- Replace hard-coded absolute paths in configuration files or scripts with relative paths or command-line arguments.
-- Verify the license compatibility of copied baseline network implementations.
-- If the local paper PDF is not redistributable, remove it and link to the DOI instead.
+- **Data**: Remove private or non-redistributable data, including private large-field datasets and local experiment outputs. Respect licenses for RITE/DRIVE, HRF, LES-AV, GAVE, Fundus-AVSeg, and any other third-party datasets.
+- **Large artifacts**: Move `train/__training/`, `eval/_Evaluation_Data/`, `eval/__results*/`, `.pth`, `.zip`, and `.xlsx` files to release assets or external storage.
+- **Hard-coded paths**: Replace absolute paths in configuration files and scripts (e.g., `/mnt/nasv3/...` in `config.py` and shell scripts) with relative paths or command-line arguments.
+- **Baseline networks**: Verify the license compatibility of any copied baseline network implementations before redistribution.
+- **Paper PDF**: If the included `AV_classification_ESWA_pubmed.pdf` is not redistributable, remove it and link to the [DOI](https://doi.org/10.1016/j.eswa.2025.130795) instead.
 
 Suggested `.gitignore` entries:
 
 ```gitignore
-
 train/_Data/
-
 train/__training/
-
 eval/_Evaluation_Data/
-
 eval/__results*/
-
 large_field_private/
-
 *.zip
-
 *.pth
-
 *.xlsx
-
 __pycache__/
-
 *.pyc
 ```
 
@@ -385,24 +349,30 @@ __pycache__/
 If you find this repository useful in your research, please cite our paper:
 
 ```bibtex
-
 @article{zeng2026channelcoupling,
-
-title = {Improve retinal artery/vein classification via channel coupling},
-
-author = {Zeng, Shuang and Lee, Chee Hong and Li, Kaiwen and Xie, Boxu and Fu, Ourui and He, Hangzhou and Zhu, Lei and Lu, Yanye and Cheng, Fangxiao},
-
-journal = {Expert Systems With Applications},
-
-volume = {305},
-
-pages = {130795},
-
-year = {2026},
-
-doi = {10.1016/j.eswa.2025.130795}
-
+  title   = {Improve retinal artery/vein classification via channel coupling},
+  author  = {Zeng, Shuang and Lee, Chee Hong and Li, Kaiwen and Xie, Boxu and Fu, Ourui and He, Hangzhou and Zhu, Lei and Lu, Yanye and Cheng, Fangxiao},
+  journal = {Expert Systems With Applications},
+  volume  = {305},
+  pages   = {130795},
+  year    = {2026},
+  doi     = {10.1016/j.eswa.2025.130795}
 }
 ```
 
-Please also cite the original RRWNet work if you use the recursive refinement architecture or its evaluation protocol.
+If you use the recursive refinement architecture or its evaluation protocol, please also cite the original [RRWNet](https://github.com/stevezs315/AV_seg) work.
+
+---
+
+## Contact
+
+- **Shuang Zeng** (First Author): [stevezs@pku.edu.cn](mailto:stevezs@pku.edu.cn)
+- **Yanye Lu** (Corresponding Author): [yanye.lu@pku.edu.cn](mailto:yanye.lu@pku.edu.cn)
+
+For questions and issues, please open a [GitHub Issue](https://github.com/stevezs315/AV_seg/issues).
+
+---
+
+## Acknowledgement
+
+This codebase builds upon [RRWNet](https://github.com/stevezs315/AV_seg). We thank the authors for their excellent work and for releasing their code.
