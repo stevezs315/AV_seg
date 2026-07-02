@@ -317,33 +317,6 @@ AV_seg/
 
 ---
 
-## Open-Source Notes
-
-Before redistributing this repository, please note the following:
-
-- **Data**: Remove private or non-redistributable data, including private large-field datasets and local experiment outputs. Respect licenses for RITE/DRIVE, HRF, LES-AV, GAVE, Fundus-AVSeg, and any other third-party datasets.
-- **Large artifacts**: Move `train/__training/`, `eval/_Evaluation_Data/`, `eval/__results*/`, `.pth`, `.zip`, and `.xlsx` files to release assets or external storage.
-- **Hard-coded paths**: Replace absolute paths in configuration files and scripts (e.g., `/mnt/nasv3/...` in `config.py` and shell scripts) with relative paths or command-line arguments.
-- **Baseline networks**: Verify the license compatibility of any copied baseline network implementations before redistribution.
-- **Paper PDF**: If the included `AV_classification_ESWA_pubmed.pdf` is not redistributable, remove it and link to the [DOI](https://doi.org/10.1016/j.eswa.2025.130795) instead.
-
-Suggested `.gitignore` entries:
-
-```gitignore
-train/_Data/
-train/__training/
-eval/_Evaluation_Data/
-eval/__results*/
-large_field_private/
-*.zip
-*.pth
-*.xlsx
-__pycache__/
-*.pyc
-```
-
----
-
 ## Citation
 
 If you find this repository useful in your research, please cite our paper:
