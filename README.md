@@ -56,134 +56,83 @@ The main training objective combines:
 
 ```bash
 
-Total Loss = Base A/V Loss + Channel-Coupling Loss + Superpixel Contrastive Loss + Optional Recursive Loss
+Total Loss = Basic BCE Loss + Channel-Coupled Vessel Consistency Loss + Intra-image Pixel-level Contrastive Loss
 ```
 
 **Key modules:**
 
--**`BCE3Loss`**: base three-channel A/V/VT supervision.
+- **Channel-Coupled Vessel Consistency Loss**: 
+- **Intra-image Pixel-level Contrastive Loss**:   
 
--**`BCE3wminmaxLoss`**: channel-coupled variant used to align A/V predictions with the vessel-tree channel.
-
--**`SpCLLoss`**: superpixel-guided contrastive loss for intra-image pixel-level consistency.
-
--**Recursive refinement losses**: optional regularizers such as `SVoxelLoss`, `D25Loss`, and `topoLoss`.
-
-Supported backbones include `RRWNet`, `RRWNetAll`, `RRUNet`, `WNet`, `UNet`, `UNet_pp`, `LadderNetv6`, `Rolling_Unet_M`, `AttU_Net`, `Iternet`, and `RSFConvUnet`.
 
 ---
 
 ## Installation
 
 ```bash
-
-condacreate-nav_segpython=3.8.16
-
-condaactivateav_seg
-
-pipinstall-rrequirements.txt
+conda create -n av_seg python=3.8.16
+conda activate av_seg
+pip install -r requirements.txt
 ```
 
-The checked-in `requirements.txt` records the environment used by historical experiments. For a clean public release, it is recommended to create a smaller `requirements-minimal.txt` or `environment.yml`.
+---
+
+## Model Weights and Predictions
+
+Pre-trained model weights: "AV_Seg/model_pth"
+
+| Model                 | train/test Dataset | Backbone          |
+| ----------------------| -------------------| ------------------|
+| RITE_generator_best   | RITE               | RRWNet + Our Loss |
+| LES-AV_generator_best | LES-AV             | RRWNet + Our Loss |
+| HRF_generator_best    | HRF                | RRWNet + Our Loss |
 
 ---
 
-## Model Weights
-
-Pre-trained weights are not bundled with the public repository by default because checkpoint files can be large. Example local checkpoints follow this layout:
-
-| Model | Dataset | Checkpoint |
-
-| ----- | ------- | ---------- |
-
-| RRWNet + channel coupling + SpCL | RITE | `train/__training/RITE_RRWNet_minmax_0.19_spCL_0.05/generator_best.pth` |
-
-| RRWNet baseline | RITE | `train/__training/RITE_RRWNet_BCE_base/generator_best.pth` |
-
-For release, place large model weights in GitHub Releases, Google Drive, Zenodo, or Git LFS, then document the download path here.
-
----
+**The final predictions of RRWNet with our proposed loss can be found at "AV_Seg/predictions"**
 
 ## Dataset Preparation
 
-### Supported Datasets
 
-| Dataset | Description | Code name |
+All fundus datasets provide color retinal images with A/V annotations. Labels are stored as three-channel maps (`A`, `V`, `VT`), where artery and vein are subsets of the complete vessel tree.
 
-| ------- | ----------- | --------- |
+| Dataset | Description | Training resolution | Images | 
+| ------- | ----------- | ------ | ------ |
+| RITE / DRIVE A/V | A/V benchmark derived from DRIVE | Full resolution (565 × 584)| 40 (20 train / 20 test) |
+| LES-AV | A/V benchmark with glaucoma cases | Width resized to 576 px | 22 （11 train / 11 test） |
+| HRF | High-resolution fundus with A/V labels | Width resized to 1024 px | 45 (30 train / 15 test)  |
+| Fundus-AVSeg | Multi-disease fundus A/V segmentation | Resized to 1280 × 1280| 100 (80 train / 20 test) |
 
-| RITE / DRIVE A/V | Retinal artery/vein benchmark | `RITE-train` |
+- RITE, [link](https://drive.google.com/file/d/154XKN2umLFXaghhXW--rIgDNzNRa4bxB/view?usp=drive_link)
+- LES-AV, [link](https://drive.google.com/file/d/1MHK11qGJTDEpmvieJM0T0Q-799Iwvwjh/view?usp=drive_link)
+- HRF, [link](https://drive.google.com/file/d/1JPsfHkk4Li_9EeXbJ5ZKUo7Y9qpYIrj7/view?usp=drive_link)
+- Fundus-AVSeg, [link](https://drive.google.com/file/d/1sMJMa4XSMqta8LWMOISPv-J_DY7l76lo/view?usp=drive_link)
 
-| LES-AV | Retinal artery/vein benchmark | `LES-AV` |
-
-| HRF | High-resolution fundus A/V labels | `HRF-Karlsson-w1024` |
-
-| Fundus-AVSeg | Fundus A/V segmentation data | `Fundus-AVSeg` |
-
-| GAVE | Local GAVE-style training data | `GAVE` |
-
-| Private large-field data | Internal/private data | `LF_private` |
-
-The paper experiments are centered on four public datasets: **RITE**, **LES-AV**, **HRF**, and **Fundus-AVSeg**.
-
-### Expected Layout
-
-Training data are expected under `train/_Data/`:
-
-```text
-
-train/_Data/<dataset>/<split>/
-
-├── images/ or enhanced/        # input fundus images
-
-├── masks/ or enhanced_masks/   # field-of-view masks
-
-└── av3/                        # 3-channel A/V/VT labels
-```
-
-For `Fundus-AVSeg`, the code expects:
-
-```text
-
-train/_Data/Fundus-AVSeg/
-
-├── images/
-
-├── masks/
-
-├── annotation/
-
-├── training.txt
-
-└── testing.txt
-```
+---
 
 ### Pre-Processing
+
+All fundus images undergo offline preprocessing before training, including **global contrast enhancement** and **local intensity normalization**, following [Morano et al., 2021](https://doi.org/10.1016/j.media.2021.103274).
 
 If field-of-view masks are unavailable, generate them with:
 
 ```bash
-
-pythongenerate_mask.py
+python generate_mask.py
 ```
 
 Enhance fundus images with:
 
 ```bash
-
-pythonpreprocessing.py\
-
+python preprocessing.py \
   --images-path train/_Data/<dataset>/training/images \
-
---masks-pathtrain/_Data/<dataset>/training/masks\
-
+  --masks-path train/_Data/<dataset>/training/masks \
   --save-path train/_Data/<dataset>/training/enhanced
 ```
 
 For a new dataset:
 
 1. Split images into train/test sets.
-2. Prepare masks and three-channel A/V/VT labels.
+2. Prepare FOV masks and three-channel A/V/VT labels.
 3. Run image enhancement if needed.
 4. Register the dataset in `train/config.py`.
 

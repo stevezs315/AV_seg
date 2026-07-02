@@ -1,0 +1,18 @@
+# Large model weights (host via GitHub Releases / Hugging Face / cloud storage)
+*.pth
+
+# macOS
+.DS_Store
+
+# Training / eval artifacts
+train/_Data/
+train/__training/
+eval/_Evaluation_Data/
+eval/__results*/
+
+# Python
+__pycache__/
+*.pyc
+
+# Optional: local paper copy (link DOI in README instead)
+# AV_classification_ESWA_pubmed.pdf
