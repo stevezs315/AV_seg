@@ -61,9 +61,8 @@ Total Loss = Basic BCE Loss + Channel-Coupled Vessel Consistency Loss + Intra-im
 
 **Key modules:**
 
-- **Channel-Coupled Vessel Consistency Loss**: 
-- **Intra-image Pixel-level Contrastive Loss**:   
-
+- **Channel-Coupled Vessel Consistency Loss**: A novel loss that enforces anatomical coherence among artery, vein, and vessel predictions by fusing them through min‑operations based on ground‑truth class labels, ensuring that arterial and venous predictions remain consistent with the overall vascular structure.
+- **Intra-image Pixel-level Contrastive Loss**:   A regularization term that leverages superpixel segmentation to guide unsupervised contrastive learning, treating pixels within the same superpixel cluster as positive pairs and those from different clusters as negative pairs, thereby promoting more discriminative fine‑grained feature representations.
 
 ---
 
